@@ -14,11 +14,11 @@
 #  limitations under the License.
 
 if [ -z "$CLASS_PATH" ]; then
-  CLASS_PATH="/usr/share/cassandra-reaper/*"
+  CLASS_PATH="/app/code/cassandra-reaper/target/cassandra-reaper-0.2.4-SNAPSHOT.jar"
 fi
 
 if [ $# -eq 0 ]; then
-    CONFIG_PATH="/etc/spotify/cassandra-reaper.yaml"
+    CONFIG_PATH="/app/code/cassandra-reaper/src/test/resources/cassandra-reaper.yaml"
 else
     CONFIG_PATH="$@"
 fi

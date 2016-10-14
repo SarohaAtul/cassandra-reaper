@@ -19,22 +19,22 @@ incrementalRepair: false
 scheduleDaysBetween: 7
 
 # storageType is either "database" or "memory"
-storageType: memory
+storageType: database
 
 # Enable HTTP headers to that GUI can work
 # GUI lives at https://github.com/spodkowinski/cassandra-reaper-ui
 enableCrossOrigin: true
 
 # custom jmx port mappings that will be used instead of the default port for specified hosts (optional)
-#jmxPorts:
-#  127.0.0.1: 7100
-#  127.0.0.2: 7200
-#  127.0.0.3: 7300
+jmxPorts:
+  10.41.55.117: 7199
+  10.41.55.118: 7199
+  10.41.55.119: 7199
 
 # Use following credential for JMX authentication
-#jmxAuth:
-#    username: myuser
-#    password: mypassword
+jmxAuth:
+  username: controlRole
+  password: control
 
 logging:
   level: DEBUG
@@ -66,13 +66,13 @@ database:
   driverClass: org.postgresql.Driver
 
   # the username
-  user: pg-user
+  user: reaper
 
   # the password
-  password: iAMs00perSecrEET
+  password: my_secret_password
 
   # the JDBC URL
-  url: jdbc:postgresql://db.example.com/db-prod
+  url: jdbc:postgresql://127.0.0.1/reaper_db
 
   # any properties specific to your JDBC driver:
   properties:

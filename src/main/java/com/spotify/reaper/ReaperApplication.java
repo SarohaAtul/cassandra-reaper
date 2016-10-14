@@ -51,175 +51,193 @@ import io.dropwizard.setup.Environment;
 import sun.misc.Signal;
 import sun.misc.SignalHandler;
 
-public class ReaperApplication extends Application<ReaperApplicationConfiguration> {
+public class ReaperApplication extends
+		Application<ReaperApplicationConfiguration> {
 
-  static final Logger LOG = LoggerFactory.getLogger(ReaperApplication.class);
+	static final Logger LOG = LoggerFactory.getLogger(ReaperApplication.class);
 
-  private AppContext context;
+	private AppContext context;
 
-  public ReaperApplication() {
-    super();
-    LOG.info("default ReaperApplication constructor called");
-    this.context = new AppContext();
-  }
+	public ReaperApplication() {
+		super();
+		LOG.info("default ReaperApplication constructor called");
+		this.context = new AppContext();
+	}
 
-  @VisibleForTesting
-  public ReaperApplication(AppContext context) {
-    super();
-    LOG.info("ReaperApplication constructor called with custom AppContext");
-    this.context = context;
-  }
+	@VisibleForTesting
+	public ReaperApplication(AppContext context) {
+		super();
+		LOG.info("ReaperApplication constructor called with custom AppContext");
+		this.context = context;
+	}
 
-  public static void main(String[] args) throws Exception {
-    new ReaperApplication().run(args);
-  }
+	public static void main(String[] args) throws Exception {
+		new ReaperApplication().run(args);
+	}
 
-  @Override
-  public String getName() {
-    return "cassandra-reaper";
-  }
+	@Override
+	public String getName() {
+		return "cassandra-reaper";
+	}
 
-  /**
-   * Before a Dropwizard application can provide the command-line interface, parse a configuration
-   * file, or run as a server, it must first go through a bootstrapping phase. You can add Bundles,
-   * Commands, or register Jackson modules to allow you to include custom types as part of your
-   * configuration class.
-   */
-  @Override
-  public void initialize(Bootstrap<ReaperApplicationConfiguration> bootstrap) {
-    bootstrap.addBundle(new AssetsBundle("/assets/", "/webui", "index.html"));
-  }
+	/**
+	 * Before a Dropwizard application can provide the command-line interface,
+	 * parse a configuration file, or run as a server, it must first go through
+	 * a bootstrapping phase. You can add Bundles, Commands, or register Jackson
+	 * modules to allow you to include custom types as part of your
+	 * configuration class.
+	 */
+	@Override
+	public void initialize(Bootstrap<ReaperApplicationConfiguration> bootstrap) {
+		bootstrap
+				.addBundle(new AssetsBundle("/assets/", "/webui", "index.html"));
+	}
 
-  @Override
-  public void run(ReaperApplicationConfiguration config,
-      Environment environment) throws Exception {
-    // Using UTC times everywhere as default. Affects only Yoda time.
-    DateTimeZone.setDefault(DateTimeZone.UTC);
+	@Override
+	public void run(ReaperApplicationConfiguration config,
+			Environment environment) throws Exception {
+		// Using UTC times everywhere as default. Affects only Yoda time.
+		DateTimeZone.setDefault(DateTimeZone.UTC);
 
-    checkConfiguration(config);
-    context.config = config;
+		checkConfiguration(config);
+		context.config = config;
 
-    addSignalHandlers(); // SIGHUP, etc.
+		addSignalHandlers(); // SIGHUP, etc.
 
-    LOG.info("initializing runner thread pool with {} threads", config.getRepairRunThreadCount());
-    context.repairManager = new RepairManager();
-    context.repairManager.initializeThreadPool(
-        config.getRepairRunThreadCount(),
-        config.getHangingRepairTimeoutMins(), TimeUnit.MINUTES,
-        30, TimeUnit.SECONDS);
+		LOG.info("initializing runner thread pool with {} threads",
+				config.getRepairRunThreadCount());
+		context.repairManager = new RepairManager();
+		context.repairManager.initializeThreadPool(
+				config.getRepairRunThreadCount(),
+				config.getHangingRepairTimeoutMins(), TimeUnit.MINUTES, 30,
+				TimeUnit.SECONDS);
 
-    if (context.storage == null) {
-      LOG.info("initializing storage of type: {}", config.getStorageType());
-      context.storage = initializeStorage(config, environment);
-    } else {
-      LOG.info("storage already given in context, not initializing a new one");
-    }
+		if (context.storage == null) {
+			LOG.info("initializing storage of type: {}",
+					config.getStorageType());
+			context.storage = initializeStorage(config, environment);
+		} else {
+			LOG.info("storage already given in context, not initializing a new one");
+		}
 
-    if (context.jmxConnectionFactory == null) {
-      LOG.info("no JMX connection factory given in context, creating default");
-      context.jmxConnectionFactory = new JmxConnectionFactory();
-    }
+		if (context.jmxConnectionFactory == null) {
+			LOG.info("no JMX connection factory given in context, creating default");
+			context.jmxConnectionFactory = new JmxConnectionFactory();
+		}
 
-    // read jmx host/port mapping from config and provide to jmx con.factory
-    Map<String, Integer> jmxPorts = config.getJmxPorts();
-    if (jmxPorts != null) {
-      LOG.debug("using JMX ports mapping: " + jmxPorts);
-      context.jmxConnectionFactory.setJmxPorts(jmxPorts);
-    }
+		// read jmx host/port mapping from config and provide to jmx con.factory
+		Map<String, Integer> jmxPorts = config.getJmxPorts();
+		if (jmxPorts != null) {
+			LOG.debug("using JMX ports mapping: " + jmxPorts);
+			context.jmxConnectionFactory.setJmxPorts(jmxPorts);
+		}
 
-    // Enable cross-origin requests for using external GUI applications.
-    if (config.isEnableCrossOrigin() || System.getProperty("enableCrossOrigin") != null) {
-      final FilterRegistration.Dynamic cors = environment.servlets()
-          .addFilter("crossOriginRequests", CrossOriginFilter.class);
-      cors.setInitParameter("allowedOrigins", "*");
-      cors.setInitParameter("allowedHeaders", "X-Requested-With,Content-Type,Accept,Origin");
-      cors.setInitParameter("allowedMethods", "OPTIONS,GET,PUT,POST,DELETE,HEAD");
-      cors.addMappingForUrlPatterns(EnumSet.allOf(DispatcherType.class), true, "/*");
-    }
+		// Enable cross-origin requests for using external GUI applications.
+		if (config.isEnableCrossOrigin()
+				|| System.getProperty("enableCrossOrigin") != null) {
+			final FilterRegistration.Dynamic cors = environment.servlets()
+					.addFilter("crossOriginRequests", CrossOriginFilter.class);
+			cors.setInitParameter("allowedOrigins", "*");
+			cors.setInitParameter("allowedHeaders",
+					"X-Requested-With,Content-Type,Accept,Origin");
+			cors.setInitParameter("allowedMethods",
+					"OPTIONS,GET,PUT,POST,DELETE,HEAD");
+			cors.addMappingForUrlPatterns(EnumSet.allOf(DispatcherType.class),
+					true, "/*");
+		}
 
-    JmxCredentials jmxAuth = config.getJmxAuth();
-    if (jmxAuth != null) {
-      LOG.debug("using specified JMX credentials for authentication");
-      context.jmxConnectionFactory.setJmxAuth(jmxAuth);
-    }
+		JmxCredentials jmxAuth = config.getJmxAuth();
+		if (jmxAuth != null) {
+			LOG.debug("using specified JMX credentials for authentication");
+			context.jmxConnectionFactory.setJmxAuth(jmxAuth);
+		}
 
-    LOG.info("creating and registering health checks");
-    // Notice that health checks are registered under the admin application on /healthcheck
-    final ReaperHealthCheck healthCheck = new ReaperHealthCheck(context);
-    environment.healthChecks().register("reaper", healthCheck);
-    environment.jersey().register(healthCheck);
+		LOG.info("creating and registering health checks");
+		// Notice that health checks are registered under the admin application
+		// on /healthcheck
+		final ReaperHealthCheck healthCheck = new ReaperHealthCheck(context);
+		environment.healthChecks().register("reaper", healthCheck);
+		environment.jersey().register(healthCheck);
 
-    LOG.info("creating resources and registering endpoints");
-    final PingResource pingResource = new PingResource();
-    environment.jersey().register(pingResource);
+		LOG.info("creating resources and registering endpoints");
+		final PingResource pingResource = new PingResource();
+		environment.jersey().register(pingResource);
 
-    final ClusterResource addClusterResource = new ClusterResource(context);
-    environment.jersey().register(addClusterResource);
+		final ClusterResource addClusterResource = new ClusterResource(context);
+		environment.jersey().register(addClusterResource);
 
-    final RepairRunResource addRepairRunResource = new RepairRunResource(context);
-    environment.jersey().register(addRepairRunResource);
+		final RepairRunResource addRepairRunResource = new RepairRunResource(
+				context);
+		environment.jersey().register(addRepairRunResource);
 
-    final RepairScheduleResource addRepairScheduleResource = new RepairScheduleResource(context);
-    environment.jersey().register(addRepairScheduleResource);
-    Thread.sleep(1000);
+		final RepairScheduleResource addRepairScheduleResource = new RepairScheduleResource(
+				context);
+		environment.jersey().register(addRepairScheduleResource);
+		Thread.sleep(1000);
 
-    SchedulingManager.start(context);
+		SchedulingManager.start(context);
 
-    LOG.info("resuming pending repair runs");
-    context.repairManager.resumeRunningRepairRuns(context);
-  }
+		LOG.info("resuming pending repair runs");
+		context.repairManager.resumeRunningRepairRuns(context);
+	}
 
-  private IStorage initializeStorage(ReaperApplicationConfiguration config,
-      Environment environment) throws ReaperException {
-    IStorage storage;
-    if ("memory".equalsIgnoreCase(config.getStorageType())) {
-      storage = new MemoryStorage();
-    } else if ("database".equalsIgnoreCase(config.getStorageType())) {
-      storage = new PostgresStorage(config, environment);
-    } else {
-      LOG.error("invalid storageType: {}", config.getStorageType());
-      throw new ReaperException("invalid storage type: " + config.getStorageType());
-    }
-    assert storage.isStorageConnected() : "Failed to connect storage";
-    return storage;
-  }
+	private IStorage initializeStorage(ReaperApplicationConfiguration config,
+			Environment environment) throws ReaperException {
+		IStorage storage;
+		if ("memory".equalsIgnoreCase(config.getStorageType())) {
+			storage = new MemoryStorage();
+		} else if ("database".equalsIgnoreCase(config.getStorageType())) {
+			storage = new PostgresStorage(config, environment);
+		} else {
+			LOG.error("invalid storageType: {}", config.getStorageType());
+			throw new ReaperException("invalid storage type: "
+					+ config.getStorageType());
+		}
+		assert storage.isStorageConnected() : "Failed to connect storage";
+		return storage;
+	}
 
-  private void checkConfiguration(ReaperApplicationConfiguration config) {
-    LOG.debug("repairIntensity: " + config.getRepairIntensity());
-    LOG.debug("incrementalRepair:" + config.getIncrementalRepair());
-    LOG.debug("repairRunThreadCount: " + config.getRepairRunThreadCount());
-    LOG.debug("segmentCount: " + config.getSegmentCount());
-    LOG.debug("repairParallelism: " + config.getRepairParallelism());
-    LOG.debug("hangingRepairTimeoutMins: " + config.getHangingRepairTimeoutMins());
-    LOG.debug("jmxPorts: " + config.getJmxPorts());
-  }
+	private void checkConfiguration(ReaperApplicationConfiguration config) {
+		LOG.debug("repairIntensity: " + config.getRepairIntensity());
+		LOG.debug("incrementalRepair:" + config.getIncrementalRepair());
+		LOG.debug("repairRunThreadCount: " + config.getRepairRunThreadCount());
+		LOG.debug("segmentCount: " + config.getSegmentCount());
+		LOG.debug("repairParallelism: " + config.getRepairParallelism());
+		LOG.debug("hangingRepairTimeoutMins: "
+				+ config.getHangingRepairTimeoutMins());
+		LOG.debug("jmxPorts: " + config.getJmxPorts());
+	}
 
-  public static void checkRepairParallelismString(String givenRepairParallelism)
-      throws ReaperException {
-    try {
-      RepairParallelism.valueOf(givenRepairParallelism.toUpperCase());
-    } catch (java.lang.IllegalArgumentException ex) {
-      throw new ReaperException(
-          "invalid repair parallelism given \"" + givenRepairParallelism
-          + "\", must be one of: " + Arrays.toString(RepairParallelism.values()));
-    }
-  }
+	public static void checkRepairParallelismString(
+			String givenRepairParallelism) throws ReaperException {
+		try {
+			RepairParallelism.valueOf(givenRepairParallelism.toUpperCase());
+		} catch (java.lang.IllegalArgumentException ex) {
+			try {
+				RepairParallelism.fromName(givenRepairParallelism.toLowerCase());
+			} catch (Exception e) {
+				throw new ReaperException("invalid repair parallelism given \""
+						+ givenRepairParallelism + "\", must be one of: "
+						+ Arrays.toString(RepairParallelism.values()));
+			}
+		}
+	}
 
-  void reloadConfiguration() {
-    // TODO: reload configuration, but how?
-    LOG.warn("SIGHUP signal dropped, missing implementation for configuration reload");
-  }
+	void reloadConfiguration() {
+		// TODO: reload configuration, but how?
+		LOG.warn("SIGHUP signal dropped, missing implementation for configuration reload");
+	}
 
-  private void addSignalHandlers() {
-	  if(!System.getProperty("os.name").toLowerCase().contains("win")) {
-	    LOG.debug("adding signal handler for SIGHUP");
-	    Signal.handle(new Signal("HUP"), new SignalHandler() {
-	      @Override
-	      public void handle(Signal signal) {
-	        LOG.info("received SIGHUP signal: {}", signal);
-	        reloadConfiguration();
-	      }
-	    });
-	  }
-  }
+	private void addSignalHandlers() {
+		if (!System.getProperty("os.name").toLowerCase().contains("win")) {
+			LOG.debug("adding signal handler for SIGHUP");
+			Signal.handle(new Signal("HUP"), new SignalHandler() {
+				@Override
+				public void handle(Signal signal) {
+					LOG.info("received SIGHUP signal: {}", signal);
+					reloadConfiguration();
+				}
+			});
+		}
+	}
 }
